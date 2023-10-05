@@ -4,9 +4,9 @@ import (
 	"log"
 	"net/http"
 
+	model "alert-service/models"
 	alertSchedulerService "alert-service/services/alert-scheduler"
 	"alert-service/services/database"
-	"alert-service/types"
 
 	"github.com/go-playground/validator/v10"
 	"github.com/labstack/echo/v4"
@@ -20,16 +20,17 @@ func main() {
 	e.POST("/alerts", createAlert)
 	e.GET("/alerts", getAlerts)
 	e.GET("/alerts/:id", getAlert)
-	e.Logger.Fatal(e.Start(":1323"))
 
-	// alertSchedulerService.LoadJobs()
+	alertSchedulerService.LoadAlerts()
+
+	e.Logger.Fatal(e.Start(":1323"))
 }
 
 // var alertConfigs []types.AlertConfig
 var dbClient = database.GetMongoClient()
 
 func createAlert(c echo.Context) error {
-	var alertConfig types.AlertConfig
+	var alertConfig model.AlertConfig
 	err := c.Bind(&alertConfig)
 	if err != nil {
 		log.Println(err)
@@ -55,15 +56,17 @@ func createAlert(c echo.Context) error {
 		// }
 		return c.String(http.StatusBadRequest, validationErrors.Error())
 	}
-	alertsDB := dbClient.Database("alerts")
-	alertConfigsCollection := alertsDB.Collection("alerts-config")
-	alertConfigsCollection.InsertOne(nil, alertConfig)
-	// alertConfigs = append(alertConfigs, alertConfig)
-	return c.String(http.StatusOK, "Alert created")
+
+	alertConfig.Enabled = true
+	saveErr := model.SaveAlertConfig(alertConfig)
+	if saveErr != nil {
+		return c.String(http.StatusInternalServerError, "Error saving alert config"+saveErr.Error())
+	}
+	return c.String(http.StatusCreated, "Alert created")
 }
 
 func getAlerts(c echo.Context) error {
-	alertConfigs, err := alertSchedulerService.GetAlertConfigs()
+	alertConfigs, err := model.GetAllAlertConfigs()
 	if err != nil {
 		return c.String(http.StatusInternalServerError, "Failed to fetch alert configs")
 	}
