@@ -1,7 +1,7 @@
-package model
+package alertConfigModel
 
 import (
-	"alert-service/services/database"
+	"alert-service/shared/database"
 	"context"
 	"log"
 	"time"
@@ -10,14 +10,15 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
-type EmailChannelDetails struct {
-	SMTPUsername    string   `json:"smtp_username"`
-	SMTPPassword    string   `json:"smtp_password"`
-	RecipientGroups []string `json:"recipient_groups"`
-	Recipients      []string `json:"recipients"`
-	TargetLevels    []string `json:"target_levels"`
-	Subject         string   `json:"subject"`
-	Template        string   `json:"template"`
+type TargetLevel struct {
+	Value    TargetLevelValue `json:"value"`
+	Severity []Serverity      `json:"severity"`
+}
+
+type Recipient struct {
+	Groups   []string  `json:"groups"`
+	Emails   []string  `json:"emails"`
+	Severity Serverity `json:"severity"`
 }
 
 type NotificationChannelType string
@@ -28,11 +29,32 @@ const (
 	GOOGLE_CHAT NotificationChannelType = "GOOGLE_CHAT"
 )
 
-type AlertLevel string
+type Serverity string
 
 const (
-	WARNING  AlertLevel = "WARNING"
-	CRITICAL AlertLevel = "CRITICAL"
+	WARNING  Serverity = "WARNING"
+	CRITICAL Serverity = "CRITICAL"
+)
+
+type DataSourceType string
+
+const (
+	ELASTICSEARCH DataSourceType = "ELASTICSEARCH"
+	MYSQL         DataSourceType = "MYSQL"
+	MONGO         DataSourceType = "MONGO"
+)
+
+type AlertType string
+
+const (
+	FREQUENCY         AlertType = "FREQUENCY"
+	JOB_STATUS_CHANGE AlertType = "JOB_STATUS_CHANGE"
+)
+
+type TargetLevelValue string
+
+const (
+	TENANT TargetLevelValue = "TENANT"
 )
 
 type NotificationChannel struct {
@@ -40,40 +62,44 @@ type NotificationChannel struct {
 	Details map[string]interface{}  `json:"details"`
 }
 
+type EmailChannelDetails struct {
+	SMTPUsername string      `mapstructure:"smtp_username" json:"smtp_username"`
+	SMTPPassword string      `mapstructure:"smtp_password" json:"smtp_password"`
+	Recipients   []Recipient `mapstructure:"recipients" json:"recipients"`
+	TargetLevel  TargetLevel `mapstructure:"target_level" json:"target_level"`
+	Subject      string      `mapstructure:"subject" json:"subject"`
+	Template     string      `mapstructure:"template" json:"template"`
+}
+
 type SourceDetailsElasticsearch struct {
-	ESHost  string `json:"es_host" validate:"required"`
-	ESPort  string `json:"es_port" validate:"required"`
-	ESIndex string `json:"es_index" validate:"required"`
-	ESQuery string `json:"es_query" validate:"required"`
+	ESHost    string                 `mapstructure:"es_host" validate:"required"`
+	ESPort    string                 `mapstructure:"es_port" validate:"required"`
+	ESIndex   string                 `mapstructure:"es_index" validate:"required"`
+	ESQuery   string                 `mapstructure:"es_query" validate:"required"`
+	Arguments map[string]interface{} `mapstructure:"query_arguments"`
 }
 
 type Alert struct {
-	Levels   []AlertLevel          `json:"levels"`
 	Channels []NotificationChannel `json:"channels"`
-	Subject  string                `json:"subject"`
 }
 
 type DataSource struct {
-	Name    string                 `json:"name"`
+	Type    DataSourceType         `json:"type"`
 	Details map[string]interface{} `json:"details"`
 }
 
 type AlertConfig struct {
-	Enabled    bool               `default:"true" json:"enabled"`
 	ID         primitive.ObjectID `bson:"_id,omitempty" json:"id"`
+	Enabled    bool               `default:"true" json:"enabled"`
 	Name       string             `json:"name" validate:"required"`
 	DataSource DataSource         `json:"data_source"  validate:"required"`
-	Type       string             `json:"type"  validate:"required"`
+	Type       AlertType          `json:"type"  validate:"required"`
 	Cron       string             `json:"cron"  validate:"required"`
-	Alerts     Alert              `json:"alert"  validate:"required"`
+	Alerts     Alert              `json:"alerts"  validate:"required"`
 }
 
-type AlertConfigRequest struct {
-	AlertConfig
-}
-
-var dbClient = database.GetMongoClient()
-var alertConfigsCollection = dbClient.Database("alerts").Collection("alerts-config")
+var db = database.GetDB()
+var alertConfigsCollection = db.Collection("alerts-config")
 
 func GetAlertConfigById(id string) (AlertConfig, error) {
 	objectId, _ := primitive.ObjectIDFromHex(id)

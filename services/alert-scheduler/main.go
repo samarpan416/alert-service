@@ -1,12 +1,12 @@
-package services
+package alertSchedulerService
 
 import (
-	database "alert-service/services/database"
+	database "alert-service/shared/database"
 	"log"
 	"time"
 
-	model "alert-service/models"
-	alertProcessor "alert-service/services/alert-processor"
+	alertConfigModel "alert-service/models/alert-config"
+	alertProcessorService "alert-service/services/alert-processor"
 
 	"github.com/go-co-op/gocron"
 )
@@ -23,13 +23,13 @@ func init() {
 
 func LoadAlerts() {
 	log.Println("load alerts")
-	alertConfigs, err := model.GetAllAlertConfigs()
+	alertConfigs, err := alertConfigModel.GetAllAlertConfigs()
 	if err != nil {
 		log.Fatalf("Error fetching jobs: %s", err)
 	}
 	for _, alertConfig := range alertConfigs {
 		alertConfigId := alertConfig.ID.Hex()
-		_, err := scheduler.Tag(alertConfigId).CronWithSeconds(alertConfig.Cron).Do(alertProcessor.ProcessAlert, alertConfigId)
+		_, err := scheduler.Tag(alertConfigId).CronWithSeconds(alertConfig.Cron).Do(alertProcessorService.ProcessAlert, alertConfigId)
 		if err != nil {
 			log.Fatalf("Error scheduling job %s", err)
 		} else {

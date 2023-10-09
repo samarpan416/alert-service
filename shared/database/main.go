@@ -29,3 +29,6 @@ func init() {
 func GetMongoClient() *mongo.Client {
 	return mongoClient
 }
+func GetDB() *mongo.Database {
+	return mongoClient.Database("alerts")
+}
