@@ -11,14 +11,14 @@ import (
 )
 
 type TargetLevel struct {
-	Value    TargetLevelValue `json:"value"`
-	Severity []Serverity      `json:"severity"`
+	Value    TargetLevelValue `mapstructure:"value" json:"value"`
+	Severity []Serverity      `mapstructure:"severity" json:"severity"`
 }
 
 type Recipient struct {
-	Groups   []string  `json:"groups"`
-	Emails   []string  `json:"emails"`
-	Severity Serverity `json:"severity"`
+	Groups   []string  `mapstructure:"groups" json:"groups"`
+	Emails   []string  `mapstructure:"emails" json:"emails"`
+	Severity Serverity `mapstructure:"severity" json:"severity"`
 }
 
 type NotificationChannelType string
