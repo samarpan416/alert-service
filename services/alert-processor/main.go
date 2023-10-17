@@ -4,6 +4,7 @@ import (
 	jobStatusChangeTypes "alert-service/elasticsearch/job-status-change-alert/types"
 	alertConfigModel "alert-service/models/alert-config"
 	alertStateModel "alert-service/models/alert-state"
+	alertnotifierService "alert-service/services/alert-notifier"
 	alertStateManagerService "alert-service/services/alert-state-manager"
 	"bytes"
 	"encoding/json"
@@ -67,7 +68,7 @@ func Tprintf(tmpl string, data map[string]interface{}) string {
 }
 
 func (esd ESDataSourceHandler) GetData(alertConfig alertConfigModel.AlertConfig) (interface{}, error) {
-	var sourceDetails alertConfigModel.SourceDetailsElasticsearch
+	var sourceDetails alertConfigModel.ElasticsearchSourceDetails
 	if err := mapstructure.Decode(alertConfig.DataSource.Details, &sourceDetails); err != nil {
 		log.Printf("Error parsing data source details for %s", alertConfig.ID)
 		return nil, err
@@ -124,7 +125,7 @@ func (JobStatusChangeAlertHandler) Process(alertConfig alertConfigModel.AlertCon
 		return
 	}
 	log.Println("responseBody: ", responseBody.Took)
-	var sourceDetails alertConfigModel.SourceDetailsElasticsearch
+	var sourceDetails alertConfigModel.ElasticsearchSourceDetails
 	if err := mapstructure.Decode(alertConfig.DataSource.Details, &sourceDetails); err != nil {
 		log.Printf("Error parsing data source details for %s", alertConfig.ID)
 		return
@@ -173,7 +174,7 @@ func (JobStatusChangeAlertHandler) Process(alertConfig alertConfigModel.AlertCon
 				log.Printf("channel : %s", channelGroup.Key)
 				latestEvents := channelGroup.LastStatuses.Hits.Hits
 				log.Println("latestEvents: ", len(latestEvents))
-				status := evaluateStatus(latestEvents)
+				status := evaluateStatus(latestEvents, sourceDetails.Thresholds)
 				groupId := fmt.Sprintf("%s,%s,%s", cloudGroup.Key, tenantGroup.Key, channelGroup.Key)
 				log.Printf("groupId: %s, status: %s", groupId, status)
 				jobStatusChangeState, hasFailedBefore := groupIdToState[groupId]
@@ -183,7 +184,7 @@ func (JobStatusChangeAlertHandler) Process(alertConfig alertConfigModel.AlertCon
 	}
 }
 
-func evaluateStatus(latestEvents []jobStatusChangeTypes.Event) string {
+func evaluateStatus(latestEvents []jobStatusChangeTypes.Event, thresholds alertConfigModel.ElasticsearchThresholds) string {
 	status := "SUCCESSFUL"
 	failedEventCount := 0
 	for _, event := range latestEvents {
@@ -193,7 +194,7 @@ func evaluateStatus(latestEvents []jobStatusChangeTypes.Event) string {
 			break
 		}
 	}
-	if failedEventCount >= 5 {
+	if failedEventCount >= thresholds.FailedCount {
 		status = "FAILED"
 	}
 	return status
@@ -211,7 +212,13 @@ func processAlert(alertConfig alertConfigModel.AlertConfig, status string, group
 		} else {
 			// Send alert if given conditions are met
 			log.Println("Alert sent")
-			notificationProcessor(alertConfig)
+			req := alertnotifierService.SendNotificationReq{
+				// Pass map of arguments required in email template
+				Arguments: map[string]interface{}{},
+				Tenant:    tenant,
+				Serverity: alertConfigModel.WARNING,
+			}
+			alertnotifierService.NotificationProcessor(req, alertConfig)
 			// Add state in mongo
 			newJobStatusChangeState := alertStateModel.JobStatusChangeState{
 				AlertState: alertStateModel.AlertState{
@@ -224,19 +231,15 @@ func processAlert(alertConfig alertConfigModel.AlertConfig, status string, group
 				StepName:     stepName,
 				ErrorMessage: latestErrorMessage,
 				Status:       "FAILED",
-				Level:        "WARNING",
+				Severity:     "WARNING",
 				Created:      time.Now(),
 				Updated:      time.Now(),
 			}
 			stateManager.AddState(newJobStatusChangeState)
 		}
 	} else if status == "SUCCESSFUL" {
-
+		if hasFailedBefore {
+			log.Println("Send OK alert")
+		}
 	}
-}
-
-func notificationProcessor(alertConfig alertConfigModel.AlertConfig) {
-	// for _, channel := range alertConfig.Alerts.Channels {
-
-	// }
 }

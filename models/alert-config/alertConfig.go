@@ -71,14 +71,19 @@ type EmailChannelDetails struct {
 	Template     string      `mapstructure:"template" json:"template"`
 }
 
-type SourceDetailsElasticsearch struct {
-	ESHost    string                 `mapstructure:"es_host" validate:"required"`
-	ESPort    string                 `mapstructure:"es_port" validate:"required"`
-	ESIndex   string                 `mapstructure:"es_index" validate:"required"`
-	ESQuery   string                 `mapstructure:"es_query" validate:"required"`
-	Arguments map[string]interface{} `mapstructure:"query_arguments"`
+type ElasticsearchSourceDetails struct {
+	ESHost     string                  `mapstructure:"es_host" validate:"required"`
+	ESPort     string                  `mapstructure:"es_port" validate:"required"`
+	ESIndex    string                  `mapstructure:"es_index" validate:"required"`
+	ESQuery    string                  `mapstructure:"es_query" validate:"required"`
+	Arguments  map[string]interface{}  `mapstructure:"query_arguments"`
+	Thresholds ElasticsearchThresholds `mapstructure:"thresholds"`
 }
 
+type ElasticsearchThresholds struct {
+	TimeFrame   string `mapstructure:"time_frame"`
+	FailedCount int    `mapstructure:"failed_count"`
+}
 type Alert struct {
 	Channels []NotificationChannel `json:"channels"`
 }
@@ -99,7 +104,7 @@ type AlertConfig struct {
 }
 
 var db = database.GetDB()
-var alertConfigsCollection = db.Collection("alerts-config")
+var alertConfigsCollection = db.Collection("alertConfig")
 
 func GetAlertConfigById(id string) (AlertConfig, error) {
 	objectId, _ := primitive.ObjectIDFromHex(id)

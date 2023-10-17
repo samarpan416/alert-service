@@ -16,7 +16,7 @@ type DataQuery struct {
 }
 
 var db = database.GetDB()
-var dataQueryCollection = db.Collection("data-query")
+var dataQueryCollection = db.Collection("dataQuery")
 
 func GetDataQuery(dataSourceType string, name string) (DataQuery, error) {
 	filter := bson.M{"dataSourceType": dataSourceType, "name": name}

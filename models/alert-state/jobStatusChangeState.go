@@ -19,13 +19,13 @@ type JobStatusChangeState struct {
 	StepName     string
 	ErrorMessage string
 	Status       string
-	Level        string
+	Severity     string
 	Created      time.Time
 	Updated      time.Time
 }
 
 var db = database.GetDB()
-var alertStateCollection = db.Collection("alert-state")
+var alertStateCollection = db.Collection("alertState")
 
 func GetJobStatusChangeState(jobCode string, stepName string) ([]JobStatusChangeState, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -56,7 +56,7 @@ func GetJobStatusChangeState(jobCode string, stepName string) ([]JobStatusChange
 }
 
 func SaveJobStatusChangeState(jobStatusChangeState JobStatusChangeState) error {
-	_, err := alertStateCollection.InsertOne(nil, jobStatusChangeState)
+	_, err := alertStateCollection.InsertOne(context.TODO(), jobStatusChangeState)
 	if err != nil {
 		log.Fatalf("Error saving job status change state for jobCode: %s & stepName: %s", jobStatusChangeState.JobCode, jobStatusChangeState.StepName)
 		return err
